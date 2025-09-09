@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera App - แอพถ่ายรูป</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .camera-container {
+            position: relative;
+            width: 100%;
+            height: 400px;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #video, #photo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #photo {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .no-camera {
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .controls {
+            padding: 20px;
+            background: #f7f7f7;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            background: white;
+            color: #333;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            grid-column: span 3;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-icon {
+            font-size: 20px;
+        }
+
+        .flash-active {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
+        }
+
+        .status {
+            padding: 10px;
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            background: white;
+        }
+
+        @media (max-width: 480px) {
+            .controls {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .btn-primary {
+                grid-column: span 2;
+            }
+        }
+
+        /* Animation for photo capture */
+        @keyframes flash {
+            0% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        .flash-effect {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: white;
+            pointer-events: none;
+            opacity: 0;
+        }
+
+        .flash-effect.active {
+            animation: flash 0.3s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📷 Camera App</h1>
+        </div>
+        
+        <div class="camera-container">
+            <video id="video" autoplay playsinline></video>
+            <canvas id="photo" width="640" height="480"></canvas>
+            <div class="flash-effect" id="flashEffect"></div>
+            <div class="no-camera" id="noCameraMsg" style="display: none;">
+                <p>ไม่สามารถเข้าถึงกล้องได้</p>
+                <p>กรุณาอนุญาตการใช้งานกล้อง</p>
+            </div>
+        </div>
+        
+        <div class="status" id="status">กำลังเริ่มต้นกล้อง...</div>
+        
+        <div class="controls">
+            <button class="btn btn-primary" id="captureBtn" disabled>
+                <span class="btn-icon">📸</span>
+                <span>ถ่ายรูป</span>
+            </button>
+            
+            <button class="btn btn-success" id="retakeBtn" disabled>
+                <span class="btn-icon">🔄</span>
+                <span>ถ่ายใหม่</span>
+            </button>
+            
+            <button class="btn btn-info" id="saveBtn" disabled>
+                <span class="btn-icon">💾</span>
+                <span>บันทึก</span>
+            </button>
+            
+            <button class="btn btn-warning" id="switchBtn" disabled>
+                <span class="btn-icon">🔄</span>
+                <span>สลับกล้อง</span>
+            </button>
+            
+            <button class="btn btn-warning" id="flashBtn" disabled>
+                <span class="btn-icon">⚡</span>
+                <span>แฟลช</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let video = document.getElementById('video');
+        let canvas = document.getElementById('photo');
+        let captureBtn = document.getElementById('captureBtn');
+        let retakeBtn = document.getElementById('retakeBtn');
+        let saveBtn = document.getElementById('saveBtn');
+        let switchBtn = document.getElementById('switchBtn');
+        let flashBtn = document.getElementById('flashBtn');
+        let status = document.getElementById('status');
+        let noCameraMsg = document.getElementById('noCameraMsg');
+        let flashEffect = document.getElementById('flashEffect');
+        
+        let stream = null;
+        let currentFacingMode = 'user';
+        let isFlashOn = false;
+        let photoTaken = false;
+        let currentTrack = null;
+
+        // Initialize camera
+        async function initCamera(facingMode = 'user') {
+            try {
+                // Stop previous stream if exists
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+
+                const constraints = {
+                    video: {
+                        facingMode: facingMode,
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: false
+                };
+
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+                currentTrack = stream.getVideoTracks()[0];
+                
+                // Enable buttons
+                captureBtn.disabled = false;
+                switchBtn.disabled = false;
+                
+                // Check if flash is supported
+                const capabilities = currentTrack.getCapabilities ? currentTrack.getCapabilities() : {};
+                if (capabilities.torch) {
+                    flashBtn.disabled = false;
+                } else {
+                    flashBtn.disabled = true;
+                }
+                
+                video.style.display = 'block';
+                canvas.style.display = 'none';
+                noCameraMsg.style.display = 'none';
+                status.textContent = 'กล้องพร้อมใช้งาน';
+                
+                currentFacingMode = facingMode;
+                photoTaken = false;
+                
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                video.style.display = 'none';
+                noCameraMsg.style.display = 'block';
+                status.textContent = 'ไม่สามารถเข้าถึงกล้องได้';
+                captureBtn.disabled = true;
+                switchBtn.disabled = true;
+                flashBtn.disabled = true;
+            }
+        }
+
+        // Capture photo
+        captureBtn.addEventListener('click', () => {
+            if (!photoTaken) {
+                const context = canvas.getContext('2d');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                // Add flash effect
+                flashEffect.classList.add('active');
+                setTimeout(() => {
+                    flashEffect.classList.remove('active');
+                }, 300);
+                
+                // Draw video frame to canvas
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // Show photo, hide video
+                canvas.style.display = 'block';
+                video.style.display = 'none';
+                
+                // Update buttons
+                captureBtn.disabled = true;
+                retakeBtn.disabled = false;
+                saveBtn.disabled = false;
+                switchBtn.disabled = true;
+                flashBtn.disabled = true;
+                
+                status.textContent = 'รูปถ่ายเสร็จสมบูรณ์';
+                photoTaken = true;
+            }
+        });
+
+        // Retake photo
+        retakeBtn.addEventListener('click', () => {
+            canvas.style.display = 'none';
+            video.style.display = 'block';
+            
+            captureBtn.disabled = false;
+            retakeBtn.disabled = true;
+            saveBtn.disabled = true;
+            switchBtn.disabled = false;
+            
+            // Re-enable flash if supported
+            const capabilities = currentTrack.getCapabilities ? currentTrack.getCapabilities() : {};
+            if (capabilities.torch) {
+                flashBtn.disabled = false;
+            }
+            
+            status.textContent = 'กล้องพร้อมใช้งาน';
+            photoTaken = false;
+        });
+
+        // Save photo
+        saveBtn.addEventListener('click', () => {
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `photo_${new Date().getTime()}.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                status.textContent = 'บันทึกรูปเรียบร้อย';
+                setTimeout(() => {
+                    status.textContent = 'รูปถ่ายเสร็จสมบูรณ์';
+                }, 2000);
+            });
+        });
+
+        // Switch camera
+        switchBtn.addEventListener('click', () => {
+            const newFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            initCamera(newFacingMode);
+            status.textContent = 'กำลังสลับกล้อง...';
+        });
+
+        // Toggle flash
+        flashBtn.addEventListener('click', async () => {
+            try {
+                if (currentTrack && currentTrack.getCapabilities) {
+                    const capabilities = currentTrack.getCapabilities();
+                    if (capabilities.torch) {
+                        isFlashOn = !isFlashOn;
+                        await currentTrack.applyConstraints({
+                            advanced: [{ torch: isFlashOn }]
+                        });
+                        
+                        if (isFlashOn) {
+                            flashBtn.classList.add('flash-active');
+                            status.textContent = 'แฟลชเปิด';
+                        } else {
+                            flashBtn.classList.remove('flash-active');
+                            status.textContent = 'แฟลชปิด';
+                        }
+                        
+                        setTimeout(() => {
+                            status.textContent = 'กล้องพร้อมใช้งาน';
+                        }, 1500);
+                    }
+                }
+            } catch (error) {
+                console.error('Error toggling flash:', error);
+                status.textContent = 'ไม่สามารถควบคุมแฟลชได้';
+            }
+        });
+
+        // Initialize camera on load
+        window.addEventListener('load', () => {
+            initCamera();
+        });
+
+        // Clean up on unload
+        window.addEventListener('beforeunload', () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
+</body>
+</html>
